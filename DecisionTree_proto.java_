@@ -1,0 +1,220 @@
+// DecisionTree.java
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class DecisionTree_proto {
+    // Node class representing each node in the decision tree
+    public static class Node {
+        String feature;
+        int threshold;
+        String trueBranch;
+        String falseBranch;
+
+        public Node(String feature, int threshold) {
+            this.feature = feature;
+            this.threshold = threshold;
+        }
+
+        public Node(String feature, int threshold, String trueBranch, String falseBranch) {
+            this.feature = feature;
+            this.threshold = threshold;
+            this.trueBranch = trueBranch;
+            this.falseBranch = falseBranch;
+        }
+
+        public int getAttributeCount() {
+            // TODO Auto-generated method stub
+            throw new UnsupportedOperationException("Unimplemented method 'getAttributeCount'");
+        }
+    }
+
+    // Root node of the decision tree
+    private static DecisionTree_proto.Node[] root;
+
+    public static void main(String[] args) {
+        // Example usage:
+        // DecisionTree dt = new DecisionTree();
+        // dt.buildDecisionTree("data.txt");
+
+        // Build a decision tree based on an input data file
+        buildDecisionTree("decision_tree.txt");
+    }
+
+    // Method to build the decision tree from a given data file
+    private static void buildDecisionTree(String filename) {
+        root = new Node[100]; // Initialize the node array with default capacity
+
+        Map<String, Integer> attributeCounts = new HashMap<>();
+        Map<String, List<Map>> trainingData = new HashMap<>();
+
+        // Read the data file and split it into train and test sets
+        String line;
+        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
+            while ((line = reader.readLine()) != null) {
+                Map<String, Integer> row = parseRow(line);
+                trainingData.computeIfAbsent(row.get("Class"), k -> new ArrayList<>()).add(row);
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + e.getMessage());
+        }
+
+        // Train the decision tree using a greedy approach
+        trainDecisionTree(trainingData, 0, null);
+    }
+
+    // Method to train the decision tree using a greedy approach
+    private static void trainDecisionTree(Map<String, List<Map>> trainingData, int depth, Node parent) {
+        if (depth == 0 || trainingData.isEmpty()) {
+            // Base case: If there is no data left or we have reached the maximum depth, build a leaf node
+            root[parent.getAttributeCount()] = new Node(null);
+            return;
+        }
+
+        int maxGain = -1;
+        String featureToSplit = null;
+        for (int i = 0; i < trainingData.keySet().size(); i++) {
+            if (trainingData.containsKey(i)) {
+                Map<String, Integer> row = trainingData.get(i);
+                int threshold = getThreshold(row);
+
+                // Calculate the gain from splitting this attribute
+                double gain = calculateGain(row);
+                if (gain > maxGain) {
+                    maxGain = gain;
+                    featureToSplit = i;
+                    threshold = 0; // Assume non-numeric value for now
+                }
+            }
+        }
+
+        // Split the data into two child nodes based on the selected attribute and threshold
+        Node trueBranch = new Node(featureToSplit);
+        Node falseBranch = new Node(featureToSplit, null, null, null);
+
+        int j = 0;
+        while (j < trainingData.keySet().size()) {
+            if (trainingData.containsKey(j)) {
+                Map<String, Integer> row = trainingData.get(j);
+                int threshold = getThreshold(row);
+
+                // Split the data into two child nodes based on the selected attribute and threshold
+                if (featureToSplit == null) {
+                    root[parent.getAttributeCount()] = new Node(null);
+                    continue;
+                } else if ((threshold = getThreshold(row)) >= 0 && j < trainingData.keySet().size()) {
+                    root[j + 1] = trueBranch; // True branch: data <= threshold
+                    break;
+                }
+            }
+
+            root[j] = falseBranch; // False branch: data > threshold
+            j++;
+        }
+
+        // Recursively train the decision tree on each child node
+        if (featureToSplit != null) {
+            parent.setAttributeCount(parent.getAttributeCount() + 1);
+            parent.setTrueBranch(trueBranch);
+            parent.setFalseBranch(falseBranch);
+
+            trainDecisionTree(trainingData, depth - 1, parent);
+        }
+    }
+
+    // Method to calculate the gain from splitting an attribute
+    private static double calculateGain(Map<String, Integer> row) {
+        Map<String, Integer> counts = new HashMap<>();
+        for (String key : root[0].getAttributeCount().toArray(new String[0])) {
+            counts.put(key, 0);
+        }
+
+        // Count the number of instances in each node
+        for (String feature : row.keySet()) {
+            if (root[featureToSplit] == null) {
+                root[featureToSplit] = new Node(null);
+            }
+            root[featureToSplit].setAttributeCount(root[featureToSplit].getAttributeCount() + 1);
+
+            counts.put(feature, row.get(feature));
+        }
+
+        double gain = (double) counts.size(); // Number of instances in the node
+        for (String key : root[0].getAttributeCount().toArray(new String[0])) {
+            if (root[key] != null) {
+                counts.put(key, root[key].getAttributeCount());
+            }
+        }
+
+        double entropy = 0;
+        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+            int count = entry.getValue();
+            if (count == 0) {
+                continue;
+            }
+
+            double probability = (double) count / root[0].getAttributeCount();
+            entropy -= Math.log(probability) * probability;
+        }
+
+        return gain - entropy;
+    }
+
+    // Method to split the data based on a given threshold value
+    private static int getThreshold(Map<String, Integer> row) {
+        String feature = root[0].getFeature();
+        int i = 0;
+        while (i < row.keySet().size()) {
+            if (root[feature].getAttributeCount() > i) {
+                // Split the data based on the selected attribute and threshold
+                return i;
+            } else {
+                i++;
+            }
+        }
+
+        return -1;
+    }
+
+    // Method to parse a row into a map of feature values
+    private static Map<String, Integer> parseRow(String line) {
+        String[] features = line.split(",");
+        Map<String, Integer> row = new HashMap<>();
+        for (String feature : root[0].getAttributeCount().toArray(new String[0])) {
+            if (root[feature].getFeature() != null &&!feature.equals(root[feature].getFeature())) {
+                // Handle non-numeric values (e.g., "Age", "Salary")
+                row.put(feature, features.length);
+            } else {
+                // Handle numeric values (e.g., "HoursPerWeek")
+                int num = Integer.parseInt(features[features.length - 1 - i]);
+                if (num < 0) {
+                    throw new NumberFormatException("Invalid feature value: " + features[features.length - 1 - i]);
+                }
+                row.put(feature, num);
+            }
+        }
+
+        return row;
+    }
+
+    // Example usage of the decision tree
+    private static void buildDecisionTreeExample() {
+        Map<String, String> input = new HashMap<>();
+        input.put("Age", "25");
+        input.put("Salary", "50000");
+
+        Node node = root[getThreshold(input)];
+        if (node.getAttributeCount() > 1) {
+            System.out.println("True Branch: " + node.getFeature());
+            System.out.println(node.getTrueBranch());
+        } else {
+            System.out.println("Leaf Node: " + input.get("Age") + ", " + input.get("Salary"));
+        }
+    }
+}
+// Note: This code is a simplified version of a decision tree implementation and may not be fully functional.
