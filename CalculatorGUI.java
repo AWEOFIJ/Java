@@ -1,7 +1,10 @@
 
-import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import javax.swing.*;
+// import java.awt.event.keyTyped;
 
 public class CalculatorGUI extends JFrame implements ActionListener {
 
@@ -72,19 +75,65 @@ public class CalculatorGUI extends JFrame implements ActionListener {
         ActionMap am = getRootPane().getActionMap();
 
         // 設定需要處理的鍵
-        String[] keys = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "+", "-", "*", "/", "=", "ENTER", "BACK_SPACE"};
+        String[] keys = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "+", "-", "*", "/", "=", "ENTER",
+                "BACK_SPACE" };
+
+        // int[] keysCode = { KeyEvent.VK_0, KeyEvent.VK_1, KeyEvent.VK_2, KeyEvent.VK_3, KeyEvent.VK_4, KeyEvent.VK_5,
+        //         KeyEvent.VK_6, KeyEvent.VK_7, KeyEvent.VK_8, KeyEvent.VK_9, KeyEvent.VK_PERIOD, KeyEvent.VK_ADD,
+        //         KeyEvent.VK_SUBTRACT, KeyEvent.VK_MULTIPLY, KeyEvent.VK_DIVIDE, KeyEvent.VK_ENTER,
+        //         KeyEvent.VK_BACK_SPACE };
+
+        char[] keysCode = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '-', '*', '/', '=', KeyEvent.VK_ENTER,
+                KeyEvent.VK_BACK_SPACE };
 
         for (String key : keys) {
             KeyStroke ks = KeyStroke.getKeyStroke(key);
             im.put(ks, key);
-            am.put(key, new AbstractAction() {
+            am.put(ks, new AbstractAction() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     String input = key.equals("ENTER") ? "=" : key.equals("BACK_SPACE") ? "←" : key;
-                    CalculatorGUI.this.actionPerformed(new ActionEvent(e.getSource(), ActionEvent.ACTION_PERFORMED, input));
+                    CalculatorGUI.this
+                            .actionPerformed(new ActionEvent(e.getSource(), ActionEvent.ACTION_PERFORMED, input));
                 }
             });
         }
+
+        for (char keyCode : keysCode) {
+            KeyStroke ks = KeyStroke.getKeyStroke(keyCode, 0);
+            im.put(ks, Integer.toString(keyCode));
+            am.put(ks, new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+
+                    KeyEvent.KEY_TYPED;
+
+                    keyTyped(keyCode);
+                    
+                    String input = KeyEvent.getKeyText(keyCode);
+                    CalculatorGUI.this.actionPerformed(new ActionEvent(e.getSource(), ActionEvent.ACTION_PERFORMED,
+                            input));
+                }
+            });
+        }
+    }
+    
+    public void keyTyped(KeyEvent e) {
+        // 這裡不需要實作，因為我們使用 Key Bindings
+
+        String keyText = KeyEvent.getKeyText(e.getKeyCode());
+        String keyCode = Integer.toString(e.getKeyCode());
+
+        System.out.println("Key typed: " + keyText + " (" + keyCode + ")");
+    }
+
+    public void keyPressed(KeyEvent e) {
+        // 這裡不需要實作，因為我們使用 Key Bindings
+
+        String keyText = KeyEvent.getKeyText(e.getKeyCode());
+        String keyCode = Integer.toString(e.getKeyCode());
+
+        System.out.println("Key Pressed: " + keyText + " (" + keyCode + ")");
     }
 
     @Override
@@ -178,5 +227,6 @@ public class CalculatorGUI extends JFrame implements ActionListener {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new CalculatorGUI());
+
     }
 }
