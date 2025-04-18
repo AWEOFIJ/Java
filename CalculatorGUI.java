@@ -106,9 +106,9 @@ public class CalculatorGUI extends JFrame implements ActionListener {
                 @Override
                 public void actionPerformed(ActionEvent e) {
 
-                    KeyEvent.KEY_TYPED;
+                    //KeyEvent.KEY_TYPED;
 
-                    keyTyped(keyCode);
+                    //keyTyped(keyCode);
                     
                     String input = KeyEvent.getKeyText(keyCode);
                     CalculatorGUI.this.actionPerformed(new ActionEvent(e.getSource(), ActionEvent.ACTION_PERFORMED,
