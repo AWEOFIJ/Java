@@ -1,6 +1,6 @@
 import java.util.Scanner;
 
-public class simpleCalculator_rename {
+public class simpleCalculator_input {
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
