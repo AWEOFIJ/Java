@@ -8,11 +8,11 @@ import javax.swing.*;
 
 public class CalculatorGUI extends JFrame implements ActionListener {
 
-    private JTextField display;      // 顯示運算過程與結果
-    private JPanel buttonPanel;      // 按鈕排列面板
-    private double result;           // 儲存目前計算結果
-    private String operator;         // 儲存前一次的運算子
-    private boolean startNewNumber;  // 是否開始輸入新的數字
+    private final JTextField display; // 顯示運算過程與結果
+    private final JPanel buttonPanel; // 按鈕排列面板
+    private double result; // 儲存目前計算結果
+    private String operator; // 儲存前一次的運算子
+    private boolean startNewNumber; // 是否開始輸入新的數字
 
     public CalculatorGUI() {
         // 初始化運算邏輯參數
@@ -32,11 +32,11 @@ public class CalculatorGUI extends JFrame implements ActionListener {
 
         // 定義按鈕標籤
         String[] buttonLabels = {
-            "AC", "C", "←", "",
-            "7", "8", "9", "+",
-            "4", "5", "6", "-",
-            "1", "2", "3", "*",
-            "0", ".", "=", "/"
+                "AC", "C", "←", "",
+                "7", "8", "9", "+",
+                "4", "5", "6", "-",
+                "1", "2", "3", "*",
+                "0", ".", "=", "/"
         };
 
         for (String label : buttonLabels) {
@@ -46,7 +46,7 @@ public class CalculatorGUI extends JFrame implements ActionListener {
             } else {
                 JButton button = new JButton(label);
                 button.setFont(new Font("SansSerif", Font.BOLD, 24));
-                button.addActionListener(this);
+                // ActionListener will be added after construction
                 buttonPanel.add(button);
             }
         }
@@ -60,10 +60,10 @@ public class CalculatorGUI extends JFrame implements ActionListener {
         setupKeyBindings();
 
         // JFrame 設定
-        setTitle("計算機");
+        setTitle("Calculator");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         pack(); // 自動調整元件大小
-        setLocationRelativeTo(null);  // 畫面置中
+        setLocationRelativeTo(null); // 畫面置中
         setVisible(true);
     }
 
@@ -78,12 +78,16 @@ public class CalculatorGUI extends JFrame implements ActionListener {
         String[] keys = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "+", "-", "*", "/", "=", "ENTER",
                 "BACK_SPACE" };
 
-        // int[] keysCode = { KeyEvent.VK_0, KeyEvent.VK_1, KeyEvent.VK_2, KeyEvent.VK_3, KeyEvent.VK_4, KeyEvent.VK_5,
-        //         KeyEvent.VK_6, KeyEvent.VK_7, KeyEvent.VK_8, KeyEvent.VK_9, KeyEvent.VK_PERIOD, KeyEvent.VK_ADD,
-        //         KeyEvent.VK_SUBTRACT, KeyEvent.VK_MULTIPLY, KeyEvent.VK_DIVIDE, KeyEvent.VK_ENTER,
-        //         KeyEvent.VK_BACK_SPACE };
+        // int[] keysCode = { KeyEvent.VK_0, KeyEvent.VK_1, KeyEvent.VK_2,
+        // KeyEvent.VK_3, KeyEvent.VK_4, KeyEvent.VK_5,
+        // KeyEvent.VK_6, KeyEvent.VK_7, KeyEvent.VK_8, KeyEvent.VK_9,
+        // KeyEvent.VK_PERIOD, KeyEvent.VK_ADD,
+        // KeyEvent.VK_SUBTRACT, KeyEvent.VK_MULTIPLY, KeyEvent.VK_DIVIDE,
+        // KeyEvent.VK_ENTER,
+        // KeyEvent.VK_BACK_SPACE };
 
-        char[] keysCode = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '-', '*', '/', '=', KeyEvent.VK_ENTER,
+        char[] keysCode = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '-', '*', '/', '=',
+                KeyEvent.VK_ENTER,
                 KeyEvent.VK_BACK_SPACE };
 
         for (String key : keys) {
@@ -106,10 +110,10 @@ public class CalculatorGUI extends JFrame implements ActionListener {
                 @Override
                 public void actionPerformed(ActionEvent e) {
 
-                    //KeyEvent.KEY_TYPED;
+                    // KeyEvent.KEY_TYPED;
 
-                    //keyTyped(keyCode);
-                    
+                    // keyTyped(keyCode);
+
                     String input = KeyEvent.getKeyText(keyCode);
                     CalculatorGUI.this.actionPerformed(new ActionEvent(e.getSource(), ActionEvent.ACTION_PERFORMED,
                             input));
@@ -117,7 +121,7 @@ public class CalculatorGUI extends JFrame implements ActionListener {
             });
         }
     }
-    
+
     public void keyTyped(KeyEvent e) {
         // 這裡不需要實作，因為我們使用 Key Bindings
 
@@ -226,7 +230,19 @@ public class CalculatorGUI extends JFrame implements ActionListener {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new CalculatorGUI());
 
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                CalculatorGUI gui = new CalculatorGUI();
+                // Add ActionListeners after construction to avoid leaking 'this'
+                for (Component comp : gui.buttonPanel.getComponents()) {
+                    if (comp instanceof JButton) {
+                        JButton jButton = (JButton) comp;
+                        jButton.addActionListener(gui);
+                    }
+                }
+            }
+        });
     }
 }
