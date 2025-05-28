@@ -47,7 +47,9 @@ class DecisionTreeNode {
         DecisionTreeNode root = new DecisionTreeNode("你的问题"); // 將初始化一個分支结构以供評估使用
 
         ArrayList<DecisionTreeNode> yesBranches = new ArrayList<>();
-        ArrayList<DecisionTreeNode> noBranches = new ArrayList<>();
+        // 這是Yes分支的列表，將會添加到根節點下。
+        // 你可以在這裡添加更多的分支節點，根據你的需求。        
+        // ArrayList<DecisionTreeNode> noBranches = new ArrayList<>();
 
         // 添加你的Yes分支到yesBranches列表中。
         ArrayList<String> yesBranchText = new ArrayList<>(1024); // 這是Yes分支的文字
