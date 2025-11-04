@@ -190,7 +190,7 @@ public class CalculatorGUI extends JFrame implements ActionListener {
                 operator = command;
                 startNewNumber = true;
             } else {
-                if (command.equals("-")) {
+                if (command.equals("-") && operator.equals("=")) {
                     display.setText(command);
                     startNewNumber = false;
                 } else {
@@ -226,7 +226,12 @@ public class CalculatorGUI extends JFrame implements ActionListener {
                 result = n;
                 break;
         }
-        display.setText(String.valueOf(result));
+        // 如果是整數就省略小數點和0
+        if (result == (long) result) {
+            display.setText(String.format("%d", (long)result));
+        } else {
+            display.setText(Double.toString(result));
+        }
     }
 
     public static void main(String[] args) {
