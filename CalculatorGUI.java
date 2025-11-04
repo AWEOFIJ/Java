@@ -3,24 +3,44 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.*;
 // import java.awt.event.keyTyped;
 
 public class CalculatorGUI extends JFrame implements ActionListener {
 
     private final JTextField display; // 顯示運算過程與結果
+    private final JTextField processDisplay; // 顯示計算過程
     private final JPanel buttonPanel; // 按鈕排列面板
     private double result; // 儲存目前計算結果
     private String operator; // 儲存前一次的運算子
     private boolean startNewNumber; // 是否開始輸入新的數字
+    private List<String> tokens; // 儲存計算過程的 token（operand/operator）
 
     public CalculatorGUI() {
+        this(true);
+    }
+
+    /**
+     * Create the CalculatorGUI. If visible is false the frame will not be shown
+     * (useful for tests).
+     */
+    public CalculatorGUI(boolean visible) {
         // 初始化運算邏輯參數
         result = 0;
         operator = "=";
         startNewNumber = true;
+        tokens = new ArrayList<>();
 
-        // 建立顯示欄位
+        // 建立計算過程顯示欄位
+        processDisplay = new JTextField("");
+        processDisplay.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        processDisplay.setHorizontalAlignment(JTextField.RIGHT);
+        processDisplay.setEditable(false);
+        processDisplay.setBackground(Color.WHITE);
+
+        // 建立結果顯示欄位
         display = new JTextField("0");
         display.setFont(new Font("SansSerif", Font.BOLD, 24));
         display.setHorizontalAlignment(JTextField.RIGHT);
@@ -53,7 +73,13 @@ public class CalculatorGUI extends JFrame implements ActionListener {
 
         // 組合畫面上的元件
         setLayout(new BorderLayout(5, 5));
-        add(display, BorderLayout.NORTH);
+        
+        // 創建一個面板來包含兩個顯示欄位
+        JPanel displayPanel = new JPanel(new BorderLayout(5, 5));
+        displayPanel.add(processDisplay, BorderLayout.NORTH);
+        displayPanel.add(display, BorderLayout.SOUTH);
+        
+        add(displayPanel, BorderLayout.NORTH);
         add(buttonPanel, BorderLayout.CENTER);
 
         // 設定鍵盤事件
@@ -64,7 +90,7 @@ public class CalculatorGUI extends JFrame implements ActionListener {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         pack(); // 自動調整元件大小
         setLocationRelativeTo(null); // 畫面置中
-        setVisible(true);
+        setVisible(visible);
     }
 
     /**
@@ -74,52 +100,69 @@ public class CalculatorGUI extends JFrame implements ActionListener {
         InputMap im = getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
         ActionMap am = getRootPane().getActionMap();
 
-        // 設定需要處理的鍵
-        String[] keys = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "+", "-", "*", "/", "=", "ENTER",
-                "BACK_SPACE" };
+        // More reliable bindings: use both "typed X" (for keyTyped) and VK_ constants (for keyPressed)
+        // Use a single ActionMap key / AbstractAction per logical command so that
+        // multiple KeyStrokes (typed, VK, numpad) mapped to the same command
+        // only invoke one action. This avoids duplicate firing when both a
+        // typed and a VK event are produced for the same physical key.
+        java.util.Map<String, String> cmdToActionKey = new java.util.HashMap<>();
 
-        // int[] keysCode = { KeyEvent.VK_0, KeyEvent.VK_1, KeyEvent.VK_2,
-        // KeyEvent.VK_3, KeyEvent.VK_4, KeyEvent.VK_5,
-        // KeyEvent.VK_6, KeyEvent.VK_7, KeyEvent.VK_8, KeyEvent.VK_9,
-        // KeyEvent.VK_PERIOD, KeyEvent.VK_ADD,
-        // KeyEvent.VK_SUBTRACT, KeyEvent.VK_MULTIPLY, KeyEvent.VK_DIVIDE,
-        // KeyEvent.VK_ENTER,
-        // KeyEvent.VK_BACK_SPACE };
+        java.util.function.BiConsumer<KeyStroke, String> mapKeyStrokeToCmd = (ks, cmd) -> {
+            if (ks == null || cmd == null) return;
+            String actionKey = cmdToActionKey.get(cmd);
+            if (actionKey == null) {
+                actionKey = "KB_CMD_" + cmd;
+                cmdToActionKey.put(cmd, actionKey);
+                // create the single AbstractAction for this command
+                am.put(actionKey, new AbstractAction() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        // Dispatch the command on the EDT asynchronously to avoid re-entrancy
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                CalculatorGUI.this.actionPerformed(new ActionEvent(CalculatorGUI.this, ActionEvent.ACTION_PERFORMED, cmd));
+                            }
+                        });
+                    }
+                });
+            }
+            im.put(ks, actionKey);
+        };
 
-        char[] keysCode = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '-', '*', '/', '=',
-                KeyEvent.VK_ENTER,
-                KeyEvent.VK_BACK_SPACE };
+        java.util.function.BiConsumer<KeyStroke, String> bindKS = (ks, cmd) -> {
+            mapKeyStrokeToCmd.accept(ks, cmd);
+        };
 
-        for (String key : keys) {
-            KeyStroke ks = KeyStroke.getKeyStroke(key);
-            im.put(ks, key);
-            am.put(ks, new AbstractAction() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    String input = key.equals("ENTER") ? "=" : key.equals("BACK_SPACE") ? "←" : key;
-                    CalculatorGUI.this
-                            .actionPerformed(new ActionEvent(e.getSource(), ActionEvent.ACTION_PERFORMED, input));
-                }
-            });
+        // Digits: bind VK (top-row) and numpad variants. We avoid "typed" bindings to
+        // prevent duplicate activations (pressed + typed).
+        for (int d = 0; d <= 9; d++) {
+            String s = Integer.toString(d);
+            bindKS.accept(KeyStroke.getKeyStroke(KeyEvent.VK_0 + d, 0), s);
+            bindKS.accept(KeyStroke.getKeyStroke(KeyEvent.VK_NUMPAD0 + d, 0), s);
         }
 
-        for (char keyCode : keysCode) {
-            KeyStroke ks = KeyStroke.getKeyStroke(keyCode, 0);
-            im.put(ks, Integer.toString(keyCode));
-            am.put(ks, new AbstractAction() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
+        // Decimal (period)
+        bindKS.accept(KeyStroke.getKeyStroke(KeyEvent.VK_PERIOD, 0), ".");
+        bindKS.accept(KeyStroke.getKeyStroke(KeyEvent.VK_DECIMAL, 0), ".");
 
-                    // KeyEvent.KEY_TYPED;
+        // Operators: prefer VK numpad variants and top-row equivalents when available
+        bindKS.accept(KeyStroke.getKeyStroke(KeyEvent.VK_ADD, 0), "+");
+        // top-row '+' is SHIFT + '=' on many keyboards
+        bindKS.accept(KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, java.awt.event.InputEvent.SHIFT_DOWN_MASK), "+");
 
-                    // keyTyped(keyCode);
+        bindKS.accept(KeyStroke.getKeyStroke(KeyEvent.VK_SUBTRACT, 0), "-");
+        // '*' and '/'
+        bindKS.accept(KeyStroke.getKeyStroke(KeyEvent.VK_MULTIPLY, 0), "*");
+        bindKS.accept(KeyStroke.getKeyStroke(KeyEvent.VK_DIVIDE, 0), "/");
+        // top-row '*' is SHIFT+8 on many keyboards; leave numpad primary for these
 
-                    String input = KeyEvent.getKeyText(keyCode);
-                    CalculatorGUI.this.actionPerformed(new ActionEvent(e.getSource(), ActionEvent.ACTION_PERFORMED,
-                            input));
-                }
-            });
-        }
+        // Equals / Enter
+        bindKS.accept(KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, 0), "=");
+        bindKS.accept(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "=");
+
+        // Backspace
+        bindKS.accept(KeyStroke.getKeyStroke(KeyEvent.VK_BACK_SPACE, 0), "←");
     }
 
     public void keyTyped(KeyEvent e) {
@@ -143,6 +186,8 @@ public class CalculatorGUI extends JFrame implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
         String command = e.getActionCommand();
+        // Debug: log action commands so keyboard input can be diagnosed
+        System.out.println("actionPerformed: command='" + command + "' source=" + e.getSource().getClass().getName());
 
         // 處理「AC」鍵：重置所有內容與狀態
         if (command.equals("AC")) {
@@ -150,6 +195,8 @@ public class CalculatorGUI extends JFrame implements ActionListener {
             operator = "=";
             startNewNumber = true;
             display.setText("0");
+            tokens.clear();
+            processDisplay.setText("");
             return;
         }
 
@@ -176,6 +223,9 @@ public class CalculatorGUI extends JFrame implements ActionListener {
         if (command.matches("[0-9\\.]")) {
             if (startNewNumber) {
                 display.setText(command.equals(".") ? "0." : command);
+                if (operator.equals("=")) {
+                    tokens.clear();
+                }
                 startNewNumber = false;
             } else {
                 if (command.equals(".") && display.getText().contains(".")) {
@@ -183,18 +233,72 @@ public class CalculatorGUI extends JFrame implements ActionListener {
                 }
                 display.setText(display.getText() + command);
             }
+            // update display to show running tokens + current input
+            updateProcessDisplay();
         } else {
-            // 處理運算符
+            // 處理運算符（改用 tokens 管理歷史）
             if (!startNewNumber) {
-                calculate(Double.parseDouble(display.getText()));
+                String currentNumber = display.getText();
+                // Perform the calculation using the previous operator
+                calculate(Double.parseDouble(currentNumber));
+
+                // Display's text has been updated by calculate() and contains the result
+                String resultStr = display.getText();
+
+                // If previous operator was '=' we reset the tokens and start with the current number
+                if (operator.equals("=")) {
+                    tokens.clear();
+                    tokens.add(currentNumber);
+                }
+
+                if (command.equals("=")) {
+                    // Ensure last token is the current operand
+                    if (tokens.isEmpty() || !tokens.get(tokens.size() - 1).equals(currentNumber)) {
+                        tokens.add(currentNumber);
+                    }
+                    tokens.add("=");
+                    tokens.add(resultStr);
+                } else {
+                    // For other operators, ensure current operand is present then add operator
+                    if (tokens.isEmpty()) {
+                        tokens.add(currentNumber);
+                    } else {
+                        String last = tokens.get(tokens.size() - 1);
+                        if (isOperatorToken(last)) {
+                            // If tokens end with an operator placeholder, append the just-entered operand
+                            tokens.add(currentNumber);
+                        } else {
+                            // If last token is an operand that differs from currentNumber, append it
+                            if (!last.equals(currentNumber)) {
+                                tokens.add(currentNumber);
+                            }
+                        }
+                    }
+                    tokens.add(command);
+                }
+
                 operator = command;
                 startNewNumber = true;
+                updateProcessDisplay();
             } else {
                 if (command.equals("-") && operator.equals("=")) {
                     display.setText(command);
                     startNewNumber = false;
+                    tokens.clear();
+                    updateProcessDisplay();
                 } else {
+                    if (!tokens.isEmpty()) {
+                        String last = tokens.get(tokens.size() - 1);
+                        if (isOperatorToken(last)) {
+                            // replace last operator
+                            tokens.set(tokens.size() - 1, command);
+                        } else {
+                            // append operator placeholder
+                            tokens.add(command);
+                        }
+                    }
                     operator = command;
+                    updateProcessDisplay();
                 }
             }
         }
@@ -226,12 +330,46 @@ public class CalculatorGUI extends JFrame implements ActionListener {
                 result = n;
                 break;
         }
+        
         // 如果是整數就省略小數點和0
+        String resultStr;
         if (result == (long) result) {
-            display.setText(String.format("%d", (long)result));
+            resultStr = String.format("%d", (long)result);
         } else {
-            display.setText(Double.toString(result));
+            resultStr = Double.toString(result);
         }
+        display.setText(resultStr);
+        
+        // calculation does not mutate the history tokens; history rendering is handled in actionPerformed
+    }
+
+    private boolean isOperatorToken(String t) {
+        return t.equals("+") || t.equals("-") || t.equals("*") || t.equals("/") || t.equals("=");
+    }
+
+    private void updateProcessDisplay() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < tokens.size(); i++) {
+            if (i > 0) sb.append(' ');
+            sb.append(tokens.get(i));
+        }
+
+        if (!startNewNumber) {
+            String current = display.getText();
+            if (!tokens.isEmpty()) {
+                String last = tokens.get(tokens.size() - 1);
+                if (isOperatorToken(last) && !last.equals("=")) {
+                    if (sb.length() > 0) sb.append(' ');
+                    sb.append(current);
+                }
+            }
+            if (tokens.isEmpty()) {
+                sb.setLength(0);
+                sb.append(current);
+            }
+        }
+
+        processDisplay.setText(sb.toString());
     }
 
     public static void main(String[] args) {
